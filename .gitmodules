@@ -1,0 +1,6 @@
+[submodule "components/idf-rpc-server"]
+	path = components/idf-rpc-server
+	url = git@github.com:matthew798/idf-rpc-server.git
+[submodule "components/idf-blufi"]
+	path = components/idf-blufi
+	url = git@github.com:matthew798/idf-blufi.git
