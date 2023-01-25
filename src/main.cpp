@@ -8,6 +8,13 @@
 #include <max6675.h>
 #include <sTune.h>
 #include <QuickPID.h>
+#include <WiFi.h>
+#include <Configuration.h>
+
+#include "blufi.h"
+#include "HttpServer.h"
+
+#define LED_BUILTIN 2
 
 // pins
 const uint8_t inputPin = 0;
@@ -92,27 +99,56 @@ const unsigned long windowSize = 1000;
 const byte debounce = 50;
 //K 80 single oscillation
 //k 500 oscillation
-float Input, Output, Setpoint = 80, Kp = 75, Ki = 1, Kd = 1m  ;
+float Input, Output, Setpoint = 80;
 
 // status
 unsigned long windowStartTime, nextSwitchTime;
 boolean relayStatus = false;
 
+Preferences prefs;
 MAX6675 module(sck, CS, SO); //SPI
-QuickPID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd,
+QuickPID myPID(&Input, &Output, &Setpoint, 0, 0, 0,
                myPID.pMode::pOnError,
                myPID.dMode::dOnMeas,
                myPID.iAwMode::iAwClamp,
                myPID.Action::direct);
 
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+    http_register_handlers();
+    http_start();
+}
+
+float MultisampleTemp(int delayMs, short samples){
+  float val = 0;
+  for(short i = 0; i < samples; i++){
+    val += module.readCelsius();
+    delay(delayMs);
+  }
+  return val / samples;
+}
+
 void setup() {
+  PidValues pidVals;
+  
   Serial.begin(115200);
+
+  Configuration::Init();
+  Configuration::GetPidValues(&pidVals);
+  Serial.printf("PID values: P = %f, I = %f, D = %f\n", pidVals.P, pidVals.I, pidVals.D);
+
+  WiFi.onEvent(WiFiStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  WiFi.setHostname("Reflow-Oven");
+  WiFi.begin("GNET", "gingerbeer798");
+
   pinMode(relayPin, OUTPUT);
   pinMode(LED_BUILTIN, OUTPUT);
+  myPID.SetTunings(pidVals.P, pidVals.I, pidVals.D);
   myPID.SetOutputLimits(0, windowSize);
   myPID.SetSampleTimeUs(windowSize * 1000);
   myPID.SetMode(myPID.Control::automatic);
   Input = module.readCelsius();
+
 }
 
 void loop() {
@@ -120,8 +156,8 @@ void loop() {
   
   if (myPID.Compute()){
     windowStartTime = msNow;
-    Input = module.readCelsius();
-    Serial.printf("Temp: %f,Output: %f%\n", Input, Output/windowSize*100);
+    Input = MultisampleTemp(250, 3);//module.readCelsius();
+    http_ws_printf("{\"time\": %d, \"temp\": %f, \"output\": %f}", (int) (msNow / 1000), Input, Output / windowSize * 100);
   } 
 
   if (!relayStatus && Output > (msNow - windowStartTime)) {
@@ -139,4 +175,6 @@ void loop() {
       digitalWrite(LED_BUILTIN, LOW);
     }
   }
+
+  delay(100);
 }

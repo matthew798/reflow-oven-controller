@@ -93,22 +93,40 @@
     <script>
         const ctx = document.getElementById('reflowChart');
         const myChart = new Chart(ctx, {
-            type: 'bar',
             data: {
-                labels: ['1', '2', '3', '4', '5', '6'],
                 datasets:
                     [{
-                        id: 'temp',
-                        type: 'line',
-                        label: 'Temperature C',
-                    },
-                    {
                         id: 'out',
                         type: 'bar',
                         label: 'Output %',
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        barPercentage: 1
-                    }]
+                        backgroundColor: 'rgba(54, 162, 235, 0.4)',
+                        barPercentage: 1.0,
+                        yAxisID: 'yOutput'
+                    },
+                    {
+                        id: 'temp',
+                        type: 'line',
+                        label: 'Temperature C',
+                        borderColor: 'rgb(75, 192, 192)',
+                        pointRadius: 0,
+                        tension: 0.5
+                    },
+                    {
+                        id: 'profile',
+                        type: 'line',
+                        label: 'Solder Profile',
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.2,
+                        data: [
+                            {x: 0, y: 25},
+                            {x: 90, y: 90},
+                            {x: 180, y: 130},
+                            {x: 210, y: 138},
+                            {x: 240, y: 165},
+                            {x: 270, y: 138}
+                        ]
+                    }
+                    ]
             },
             options: {
                 scales: {
@@ -144,9 +162,10 @@
         }
 
         const conStatus = document.getElementById("connection-status");
+        const host = "192.168.2.92"
 
         function onLoad() {
-            var wsUri = "ws://" + location.host + "/ws";
+            var wsUri = "ws://" + host + "/ws";
             websocket = new WebSocket(wsUri);
             conStatus.setAttribute("data-status", "connecting");
             websocket.onopen = function (evt) { onOpen(evt) };
